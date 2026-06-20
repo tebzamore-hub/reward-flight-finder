@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Where Can I Fly? · Avios Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/supabase/2.45.0/supabase.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090e;--sf:#111118;--sf2:#17171f;--sf3:#1e1e28;
+  --b:rgba(255,255,255,0.06);--b2:rgba(255,255,255,0.12);
+  --tx:#eeeef5;--mu:#64647a;--mu2:#9090a8;
+  --ac:#4f8ef7;--acd:rgba(79,142,247,0.13);
+  --pu:#a78bfa;--pud:rgba(167,139,250,0.13);
+  --gr:#34d399;--grd:rgba(52,211,153,0.1);
+  --ye:#fbbf24;--yed:rgba(251,191,36,0.1);
+  --re:#f87171;--red2:rgba(248,113,113,0.1);
+  --or:#fb923c;--ord:rgba(251,146,60,0.12);
+  --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+  --r:10px;--rs:7px
+}
+body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:14px;min-height:100vh}
+.shell{display:grid;grid-template-columns:300px 1fr;min-height:100vh}
+.sidebar{background:var(--sf);border-right:1px solid var(--b);padding:22px 18px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.main{padding:26px 30px;display:flex;flex-direction:column;gap:16px}
+
+.logo{display:flex;align-items:center;gap:10px;padding-bottom:16px;border-bottom:1px solid var(--b)}
+.logo-mark{width:32px;height:32px;background:linear-gradient(135deg,var(--ac),var(--pu));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.logo-name{font-size:14px;font-weight:600}.logo-sub{font-size:10px;color:var(--mu);font-family:var(--mono)}
+
+.fl{font-size:10px;font-family:var(--mono);color:var(--mu);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:5px}
+input,select{width:100%;background:var(--sf2);border:1px solid var(--b2);border-radius:var(--rs);color:var(--tx);font-family:var(--mono);font-size:12px;padding:8px 10px;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:var(--ac)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+
+/* Program pills */
+.prog-list{display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto}
+.prog{border:1px solid var(--b);border-radius:var(--rs);padding:7px 10px;cursor:pointer;transition:all .12s;background:var(--sf2);display:flex;align-items:center;gap:8px}
+.prog:hover{border-color:var(--b2)}
+.prog.sel{border-color:var(--ac);background:var(--acd)}
+.prog.sel .pname{color:var(--ac)}
+.pico{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.pname{font-size:11px;font-weight:500}.psub{font-size:10px;color:var(--mu)}
+
+/* Points */
+.pts-big{font-size:24px;font-weight:600;font-family:var(--mono);letter-spacing:-1.5px;color:var(--ac);margin-bottom:2px}
+input[type=range]{padding:0;border:none;background:none;accent-color:var(--ac);margin-top:5px}
+
+/* Cabin toggles */
+.cabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.cab{border:1px solid var(--b2);border-radius:6px;padding:5px 3px;font-size:10px;font-family:var(--mono);color:var(--mu);cursor:pointer;text-align:center;background:none;transition:all .12s}
+.cab.on[data-c="Y"]{border-color:var(--gr);background:var(--grd);color:var(--gr)}
+.cab.on[data-c="W"]{border-color:var(--ac);background:var(--acd);color:var(--ac)}
+.cab.on[data-c="J"]{border-color:var(--pu);background:var(--pud);color:var(--pu)}
+.cab.on[data-c="F"]{border-color:var(--ye);background:var(--yed);color:var(--ye)}
+
+/* Toggle peak/offpeak view */
+.view-toggle{display:flex;gap:5px}
+.vtb{flex:1;border:1px solid var(--b2);border-radius:var(--rs);padding:7px 5px;font-size:11px;font-family:var(--mono);cursor:pointer;text-align:center;background:none;color:var(--mu);transition:all .12s}
+.vtb.on{border-color:var(--ac);background:var(--acd);color:var(--ac)}
+
+.run{width:100%;background:var(--ac);border:none;border-radius:var(--rs);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;padding:11px;cursor:pointer;transition:opacity .15s;margin-top:auto}
+.run:hover{opacity:.87}.run:disabled{opacity:.35;cursor:not-allowed}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:var(--sf);border:1px solid var(--b);border-radius:var(--r);padding:13px 15px}
+.stat-l{font-size:10px;font-family:var(--mono);color:var(--mu);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.stat-v{font-size:20px;font-weight:600;font-family:var(--mono);letter-spacing:-1.5px}
+
+/* Controls */
+.ctrls{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.ctrls select{width:auto;font-size:11px;padding:5px 8px}
+.cl{font-size:11px;color:var(--mu)}
+
+/* Table */
+.tbl-wrap{background:var(--sf);border:1px solid var(--b);border-radius:var(--r);overflow:hidden;flex:1}
+table{width:100%;border-collapse:collapse}
+thead tr{border-bottom:1px solid var(--b2);background:var(--sf2)}
+th{padding:10px 12px;text-align:left;font-size:9px;font-family:var(--mono);color:var(--mu);letter-spacing:1.2px;text-transform:uppercase;font-weight:400;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--b);transition:background .08s;cursor:pointer}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--sf2)}
+td{padding:9px 12px;font-size:12px;white-space:nowrap;vertical-align:middle}
+
+.dcode{font-family:var(--mono);font-weight:600;font-size:13px}
+.dregion{font-size:10px;color:var(--mu2);margin-top:1px}
+.rtag{font-size:10px;font-family:var(--mono);color:var(--mu);background:var(--sf3);border:1px solid var(--b);border-radius:4px;padding:2px 6px}
+.ztag{font-size:10px;font-family:var(--mono);color:var(--mu2)}
+
+/* Avios cell */
+.av-cell{min-width:90px}
+.av-val{font-family:var(--mono);font-weight:500;font-size:13px}
+.av-val.Y{color:var(--gr)}.av-val.W{color:var(--ac)}.av-val.J{color:var(--pu)}.av-val.F{color:var(--ye)}
+.av-val.faded{opacity:.35}
+.av-sub{font-size:10px;color:var(--mu);font-family:var(--mono);margin-top:1px}
+.na{color:var(--b2);font-size:16px}
+
+/* Peak badge */
+.pk-badge{display:inline-block;font-size:9px;font-family:var(--mono);padding:2px 6px;border-radius:3px;font-weight:500;letter-spacing:.5px;text-transform:uppercase}
+.pk-peak{background:var(--red2);color:var(--re)}
+.pk-off{background:var(--grd);color:var(--gr)}
+
+/* Seats */
+.sl{color:var(--re)}.sm{color:var(--ye)}.so{color:var(--gr)}
+.ddot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gr);margin-right:3px}
+
+/* Budget bar */
+.bbar-wrap{width:60px;height:4px;background:var(--sf3);border-radius:99px;overflow:hidden}
+.bbar{height:100%;border-radius:99px}
+
+/* Saving chip */
+.saving-chip{font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:99px;background:var(--grd);color:var(--gr);display:inline-block;margin-left:5px}
+
+/* Empty */
+.empty{padding:56px 24px;text-align:center;color:var(--mu)}
+.empty .ico{font-size:34px;margin-bottom:10px}
+.empty p{font-size:13px;line-height:1.8;color:var(--mu2)}
+
+/* Cache bar */
+.cache-bar{background:var(--sf2);border:1px solid var(--b);border-radius:var(--rs);padding:8px 12px;font-size:11px;font-family:var(--mono);color:var(--mu);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-ok{background:var(--gr)}.dot-old{background:var(--ye)}.dot-none{background:var(--mu)}
+
+/* Overlay */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:200;display:none;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.panel{background:var(--sf);border:1px solid var(--b2);border-radius:14px;padding:24px;width:560px;max-width:96vw;max-height:88vh;overflow-y:auto;position:relative}
+.pc{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--mu);font-size:22px;cursor:pointer}
+.pt{font-size:19px;font-weight:600;letter-spacing:-.5px;margin-bottom:2px}
+.ps{font-size:11px;color:var(--mu);font-family:var(--mono);margin-bottom:18px}
+
+/* Pricing cards — 2 columns peak/offpeak × 4 cabins */
+.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.price-section-title{font-size:10px;font-family:var(--mono);letter-spacing:1.2px;text-transform:uppercase;padding:6px 10px;border-radius:6px;margin-bottom:8px;text-align:center}
+.offpeak-title{background:var(--grd);color:var(--gr)}
+.peak-title{background:var(--red2);color:var(--re)}
+.cabin-row{display:flex;flex-direction:column;gap:6px}
+.cc{background:var(--sf2);border:1px solid var(--b);border-radius:var(--rs);padding:11px 13px}
+.ccn{font-size:10px;font-family:var(--mono);color:var(--mu);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px}
+.ccm{font-size:20px;font-weight:600;font-family:var(--mono);letter-spacing:-1.5px;margin-bottom:2px}
+.ccx{font-size:10px;color:var(--mu);font-family:var(--mono)}
+.cc-saving{font-size:10px;font-family:var(--mono);color:var(--gr);margin-top:3px}
+.ccna{color:var(--b2);font-size:12px}
+.irow{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--b);font-size:12px}
+.irow:last-child{border:none}
+.ik{color:var(--mu)}.iv{font-family:var(--mono)}
+.bkbtn{display:block;width:100%;background:var(--ac);border:none;border-radius:var(--rs);color:#fff;font-size:13px;font-weight:600;padding:11px;cursor:pointer;text-align:center;text-decoration:none;margin-top:14px}
+.bkbtn:hover{opacity:.87}
+
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--b2);border-radius:99px}
+@media(max-width:800px){.shell{grid-template-columns:1fr}.sidebar{position:static;height:auto}.stats{grid-template-columns:1fr 1fr}.main{padding:14px}}
+</style>
+</head>
+<body>
+
+<!-- !! CONFIGURE THESE !! -->
+<script>
+const SUPABASE_URL  = "https://kbtganiijxqhfcfolidp.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtidGdhbmlpanhxaGZjZm9saWRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NjI5NjAsImV4cCI6MjA5NzUzODk2MH0.mKx2tGVEDfA2dhUfmGTncHr96vKiqTuEgE6PDdbn7GU";
+</script>
+
+<div class="shell">
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">✈</div>
+    <div><div class="logo-name">Where Can I Fly?</div><div class="logo-sub">avios + peak explorer</div></div>
+  </div>
+
+  <div>
+    <div class="fl">Flying from</div>
+    <input type="text" id="origin" value="LHR" maxlength="3"
+      style="text-transform:uppercase;font-size:16px;font-weight:600;letter-spacing:2px;"
+      oninput="this.value=this.value.toUpperCase()"/>
+  </div>
+
+  <div>
+    <div class="fl">Points program</div>
+    <div class="prog-list" id="prog-list"></div>
+  </div>
+
+  <div>
+    <div class="fl">Points I have</div>
+    <div class="pts-big" id="pts-display">50,000</div>
+    <input type="range" id="pts-slider" min="5000" max="500000" step="5000" value="50000"
+      oninput="setPoints(this.value)" style="width:100%"/>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mu);font-family:var(--mono);margin-top:3px"><span>5K</span><span>500K</span></div>
+    <input type="number" id="pts-input" value="50000" min="1000" step="1000" placeholder="Or type exact"
+      style="margin-top:7px;font-size:12px;" oninput="setPointsFromInput(this.value)"/>
+  </div>
+
+  <div>
+    <div class="fl">Show pricing as</div>
+    <div class="view-toggle">
+      <button class="vtb on" id="vt-offpeak" onclick="setView('offpeak')">Off-Peak</button>
+      <button class="vtb" id="vt-peak" onclick="setView('peak')">Peak</button>
+      <button class="vtb" id="vt-both" onclick="setView('both')">Both</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="fl">Cabin class</div>
+    <div class="cabs">
+      <button class="cab on" data-c="Y" onclick="this.classList.toggle('on');if(allRows.length)render()">Economy</button>
+      <button class="cab on" data-c="W" onclick="this.classList.toggle('on');if(allRows.length)render()">Premium</button>
+      <button class="cab on" data-c="J" onclick="this.classList.toggle('on');if(allRows.length)render()">Business</button>
+      <button class="cab on" data-c="F" onclick="this.classList.toggle('on');if(allRows.length)render()">First</button>
+    </div>
+  </div>
+
+  <div class="two">
+    <div><div class="fl">From</div><input type="date" id="start-date"/></div>
+    <div><div class="fl">To</div><input type="date" id="end-date"/></div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:7px;">
+    <input type="checkbox" id="direct-only" style="width:auto;cursor:pointer;"/>
+    <label for="direct-only" style="font-size:12px;color:var(--mu2);cursor:pointer;">Direct only</label>
+  </div>
+
+  <button class="run" id="run-btn" onclick="search()">Find destinations →</button>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+    <div>
+      <div style="font-size:21px;font-weight:600;letter-spacing:-.5px" id="title">Where can you fly?</div>
+      <div style="font-size:12px;color:var(--mu);margin-top:2px" id="subtitle">Pick your program, enter your points, and explore.</div>
+    </div>
+    <button onclick="exportCSV()" style="background:var(--sf2);border:1px solid var(--b2);border-radius:var(--rs);color:var(--mu2);font-size:12px;padding:7px 12px;cursor:pointer;">↓ CSV</button>
+  </div>
+
+  <div class="cache-bar" id="cache-bar">
+    <div style="display:flex;align-items:center;gap:7px;">
+      <div class="cdot dot-none" id="cdot"></div>
+      <span id="cache-status">Checking data freshness…</span>
+    </div>
+    <span id="cache-time" style="font-size:10px;color:var(--mu)"></span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-l">Destinations</div><div class="stat-v" id="s-dest">—</div></div>
+    <div class="stat"><div class="stat-l">Within budget</div><div class="stat-v" style="color:var(--gr)" id="s-budget">—</div></div>
+    <div class="stat"><div class="stat-l">Best off-peak eco</div><div class="stat-v" style="color:var(--gr)" id="s-eco">—</div></div>
+    <div class="stat"><div class="stat-l">Best off-peak biz</div><div class="stat-v" style="color:var(--pu)" id="s-biz">—</div></div>
+  </div>
+
+  <div class="ctrls" id="ctrls" style="display:none;">
+    <span class="cl">Filter:</span>
+    <select id="f-region" onchange="render()">
+      <option value="">All regions</option>
+      <option>Europe</option><option>North America</option>
+      <option>South America</option><option>Asia</option>
+      <option>Africa</option><option>Oceania</option>
+    </select>
+    <select id="f-cabin" onchange="render()">
+      <option value="">All cabins</option>
+      <option value="Y">Economy</option><option value="W">Premium</option>
+      <option value="J">Business</option><option value="F">First</option>
+    </select>
+    <select id="f-budget" onchange="render()">
+      <option value="">Any price</option>
+      <option value="within">Within budget</option>
+    </select>
+    <span class="cl" style="margin-left:auto;">Sort:</span>
+    <select id="f-sort" onchange="render()">
+      <option value="min_offpeak">Cheapest off-peak</option>
+      <option value="min_peak">Cheapest peak</option>
+      <option value="saving">Biggest off-peak saving</option>
+      <option value="dest">Destination A–Z</option>
+      <option value="region">Region</option>
+    </select>
+  </div>
+
+  <div class="tbl-wrap" id="tbl-wrap">
+    <div class="empty"><div class="ico">🗺️</div>
+    <p>Pick your program, enter your points, set your airport,<br>and hit <strong>Find destinations</strong>.<br><br>
+    <span style="font-size:11px;">Shows both peak and off-peak Avios costs<br>using BA's official zone chart.</span></p></div>
+  </div>
+</main>
+</div>
+
+<!-- Detail overlay -->
+<div class="overlay" id="overlay" onclick="closePanel(event)">
+  <div class="panel"><button class="pc" onclick="closePanel()">×</button><div id="panel-body"></div></div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const CC = {Y:"var(--gr)",W:"var(--ac)",J:"var(--pu)",F:"var(--ye)"};
+const CN = {Y:"Economy",W:"Premium Economy",J:"Business (Club World)",F:"First"};
+const CABIN_KEYS = ["Y","W","J","F"];
+
+const PROGRAMS = [
+  {id:"american",      name:"Avios (via AAdvantage)", icon:"🇬🇧", sub:"BA/OneWorld seats"},
+  {id:"qatar",         name:"Avios (via Qatar)",      icon:"🇶🇦", sub:"Qatar + OneWorld"},
+  {id:"virginatlantic",name:"Virgin Points",           icon:"✈️",  sub:"Virgin Atlantic"},
+  {id:"flyingblue",    name:"Flying Blue",             icon:"🇫🇷", sub:"Air France / KLM"},
+  {id:"aeroplan",      name:"Aeroplan",                icon:"🍁",  sub:"Air Canada + Star Alliance"},
+  {id:"united",        name:"United MileagePlus",      icon:"🇺🇸", sub:"United + Star Alliance"},
+  {id:"delta",         name:"Delta SkyMiles",          icon:"🔺",  sub:"Delta + SkyTeam"},
+  {id:"alaska",        name:"Alaska Mileage Plan",     icon:"🏔️", sub:"Alaska + OneWorld"},
+  {id:"singaporeair",  name:"Singapore KrisFlyer",     icon:"🦁",  sub:"Singapore + Star Alliance"},
+  {id:"emirates",      name:"Emirates Skywards",       icon:"🌙",  sub:"Emirates"},
+  {id:"velocity",      name:"Velocity",                icon:"🦘",  sub:"Virgin Australia"},
+  {id:"turkish",       name:"Turkish Miles & Smiles",  icon:"🇹🇷", sub:"Turkish + Star Alliance"},
+  {id:"cathay",        name:"Cathay Asia Miles",       icon:"🐉",  sub:"Cathay + OneWorld"},
+];
+
+let selProg = null, userPoints = 50000, priceView = "offpeak", allRows = [], zoneChart = {};
+
+// ── Init ──────────────────────────────────────────────────────
+(function(){
+  buildProgs();
+  const t = new Date();
+  const d1 = new Date(t); d1.setDate(t.getDate()+1);
+  const d2 = new Date(t); d2.setDate(t.getDate()+180);
+  document.getElementById("start-date").value = d1.toISOString().split("T")[0];
+  document.getElementById("end-date").value   = d2.toISOString().split("T")[0];
+  loadZoneChart();
+  checkCache();
+})();
+
+function buildProgs(){
+  const list = document.getElementById("prog-list");
+  PROGRAMS.forEach((p,i)=>{
+    const d = document.createElement("div");
+    d.className="prog"; d.id=`p-${i}`;
+    d.innerHTML=`<span class="pico">${p.icon}</span><div><div class="pname">${p.name}</div><div class="psub">${p.sub}</div></div>`;
+    d.onclick=()=>{document.querySelectorAll(".prog").forEach(x=>x.classList.remove("sel"));d.classList.add("sel");selProg=p};
+    list.appendChild(d);
+  });
+  document.querySelector(".prog").click();
+}
+
+async function loadZoneChart(){
+  const {data} = await db.from("ba_zone_pricing").select("*").order("zone");
+  if(data) data.forEach(z=>{ zoneChart[z.zone]=z; });
+}
+
+async function checkCache(){
+  try{
+    const {data} = await db.from("refresh_log").select("finished_at,status,rows_upserted")
+      .order("finished_at",{ascending:false}).limit(1).single();
+    const dot=document.getElementById("cdot"),st=document.getElementById("cache-status"),rt=document.getElementById("cache-time");
+    if(!data){dot.className="cdot dot-none";st.textContent="No data yet — run the refresh script first";return}
+    const age=(Date.now()-new Date(data.finished_at))/86400000;
+    dot.className=`cdot ${age<8?"dot-ok":"dot-old"}`;
+    st.textContent=age<8?`Data current · ${data.rows_upserted?.toLocaleString()||"?"} routes cached`:`Data is ${Math.round(age)} days old`;
+    rt.textContent=`Updated: ${new Date(data.finished_at).toLocaleDateString()}`;
+  }catch(e){document.getElementById("cache-status").textContent="Could not check cache status";}
+}
+
+// ── Points ─────────────────────────────────────────────────────
+function setPoints(v){
+  userPoints=parseInt(v);
+  document.getElementById("pts-display").textContent=Number(v).toLocaleString();
+  document.getElementById("pts-input").value=v;
+  if(allRows.length)render();
+}
+function setPointsFromInput(v){
+  const n=parseInt(v)||0; userPoints=n;
+  document.getElementById("pts-display").textContent=n.toLocaleString();
+  document.getElementById("pts-slider").value=Math.min(Math.max(n,5000),500000);
+  if(allRows.length)render();
+}
+
+// ── View toggle ────────────────────────────────────────────────
+function setView(v){
+  priceView=v;
+  ["offpeak","peak","both"].forEach(x=>{
+    document.getElementById(`vt-${x}`).classList.toggle("on",x===v);
+  });
+  if(allRows.length)render();
+}
+
+// ── Search ─────────────────────────────────────────────────────
+async function search(){
+  const origin=document.getElementById("origin").value.trim().toUpperCase();
+  if(!origin){alert("Enter a departure airport.");return}
+  if(!selProg){alert("Pick a program.");return}
+  const startDate=document.getElementById("start-date").value;
+  const endDate=document.getElementById("end-date").value;
+  const directOnly=document.getElementById("direct-only").checked;
+  const activeCabins=[...document.querySelectorAll(".cab.on")].map(b=>b.dataset.c);
+  if(!activeCabins.length){alert("Select at least one cabin.");return}
+
+  const btn=document.getElementById("run-btn");
+  btn.disabled=true;btn.textContent="Loading…";
+  allRows=[];updateStats([]);
+  document.getElementById("ctrls").style.display="none";
+  document.getElementById("title").textContent="Searching…";
+  setEmpty("loading");
+
+  try{
+    // Query best_prices_with_peak view
+    let q=db.from("best_prices_with_peak")
+      .select("*")
+      .eq("origin",origin)
+      .eq("source",selProg.id);
+
+    const {data,error}=await q.limit(2000);
+    if(error) throw new Error(error.message);
+
+    let rows=data||[];
+
+    // If date range specified, query main table and aggregate
+    if(startDate||endDate){
+      let q2=db.from("avios_pricing")
+        .select("*")
+        .eq("origin",origin)
+        .eq("source",selProg.id);
+      if(startDate) q2=q2.gte("date",startDate);
+      if(endDate)   q2=q2.lte("date",endDate);
+      const {data:d2,error:e2}=await q2.limit(10000);
+      if(e2) throw new Error(e2.message);
+      rows=aggregateBest(d2||[]);
+    }
+
+    // Client-side filters
+    rows=rows.filter(r=>activeCabins.some(c=>r[`${c==="Y"?"eco":c==="W"?"prem":c==="J"?"biz":"first"}_avail`]||
+      r[`offpeak_${c==="Y"?"eco":c==="W"?"prem":c==="J"?"biz":"first"}_avios`]>0));
+    if(directOnly) rows=rows.filter(r=>r.any_direct_eco||r.any_direct_biz);
+
+    allRows=rows;
+
+    if(!rows.length){
+      setEmpty("empty");
+      document.getElementById("title").textContent="No destinations found";
+      document.getElementById("subtitle").textContent="Run the refresh script to populate the cache first.";
+    } else {
+      document.getElementById("title").textContent=`From ${origin} · ${userPoints.toLocaleString()} pts`;
+      document.getElementById("subtitle").textContent=`${rows.length} destinations via ${selProg.name} · showing ${priceView==="both"?"peak & off-peak":priceView} prices`;
+      updateStats(rows);
+      document.getElementById("ctrls").style.display="flex";
+      render();
+    }
+  }catch(e){
+    setEmpty("error",e.message);
+    document.getElementById("title").textContent="Error";
+  }
+  btn.disabled=false;btn.textContent="Find destinations →";
+}
+
+// Aggregate from avios_pricing rows to best per destination
+function aggregateBest(rows){
+  const map={};
+  for(const r of rows){
+    const k=r.destination;
+    if(!map[k]){ map[k]={...r,offpeak_dates_count:0,peak_dates_count:0}; }
+    const e=map[k];
+    e.distance_mi=r.distance_mi||e.distance_mi;
+    e.ba_zone=r.ba_zone||e.ba_zone;
+    if(!r.is_peak){
+      e.offpeak_dates_count=(e.offpeak_dates_count||0)+1;
+      const cabs=["eco","prem","biz","first"];
+      const keys=["ba_eco_avios","ba_prem_avios","ba_biz_avios","ba_first_avios"];
+      const avail=["y_available","w_available","j_available","f_available"];
+      cabs.forEach((c,i)=>{
+        const av=`${c}_avail`, fld=`offpeak_${c}_avios`;
+        if(r[avail[i]]&&r[keys[i]]>0){
+          e[av]=true;
+          if(!e[fld]||r[keys[i]]<e[fld]) e[fld]=r[keys[i]];
+        }
+      });
+    } else {
+      e.peak_dates_count=(e.peak_dates_count||0)+1;
+      const cabs=["eco","prem","biz","first"];
+      const keys=["ba_eco_avios","ba_prem_avios","ba_biz_avios","ba_first_avios"];
+      const avail=["y_available","w_available","j_available","f_available"];
+      cabs.forEach((c,i)=>{
+        const fld=`peak_${c}_avios`;
+        if(r[avail[i]]&&r[keys[i]]>0){
+          if(!e[fld]||r[keys[i]]<e[fld]) e[fld]=r[keys[i]];
+        }
+      });
+    }
+    if(r.any_direct_eco) e.any_direct_eco=true;
+    if(r.any_direct_biz) e.any_direct_biz=true;
+    e.taxes_eco_return=r.taxes_eco_return||e.taxes_eco_return;
+    e.taxes_prem_return=r.taxes_prem_return||e.taxes_prem_return;
+    e.taxes_biz_return=r.taxes_biz_return||e.taxes_biz_return;
+    e.taxes_first_return=r.taxes_first_return||e.taxes_first_return;
+  }
+  return Object.values(map);
+}
+
+// ── Helpers ────────────────────────────────────────────────────
+const CABIN_COL={Y:"eco",W:"prem",J:"biz",F:"first"};
+function getOffpeak(r,c){ return r[`offpeak_${CABIN_COL[c]}_avios`]||0; }
+function getPeak(r,c)    { return r[`peak_${CABIN_COL[c]}_avios`]||0; }
+function getBest(r,c)    { return Math.min(getOffpeak(r,c)||Infinity,getPeak(r,c)||Infinity); }
+function saving(r,c)     { const o=getOffpeak(r,c),p=getPeak(r,c); return(o>0&&p>0)?p-o:0; }
+
+function minAvios(r){
+  const view=priceView;
+  const cabins=["Y","W","J","F"];
+  return Math.min(...cabins.map(c=>{
+    const op=getOffpeak(r,c), pk=getPeak(r,c);
+    if(view==="offpeak") return op||Infinity;
+    if(view==="peak")    return pk||Infinity;
+    return Math.min(op||Infinity,pk||Infinity);
+  }));
+}
+function inBudget(r){ return minAvios(r)<=userPoints; }
+
+// ── Render ─────────────────────────────────────────────────────
+function render(){
+  const fR=document.getElementById("f-region").value;
+  const fC=document.getElementById("f-cabin").value;
+  const fB=document.getElementById("f-budget").value;
+  const fS=document.getElementById("f-sort").value;
+  const activeCabins=[...document.querySelectorAll(".cab.on")].map(b=>b.dataset.c);
+
+  let data=[...allRows];
+  if(fR) data=data.filter(r=>(r.destination_region||"")===fR);
+  if(fC) data=data.filter(r=>getOffpeak(r,fC)>0||getPeak(r,fC)>0);
+  if(fB==="within") data=data.filter(r=>inBudget(r));
+
+  data.sort((a,b)=>{
+    if(fS==="min_offpeak") return Math.min(...activeCabins.map(c=>getOffpeak(a,c)||Infinity)) - Math.min(...activeCabins.map(c=>getOffpeak(b,c)||Infinity));
+    if(fS==="min_peak")    return Math.min(...activeCabins.map(c=>getPeak(a,c)||Infinity))    - Math.min(...activeCabins.map(c=>getPeak(b,c)||Infinity));
+    if(fS==="saving")      return Math.max(...activeCabins.map(c=>saving(b,c))) - Math.max(...activeCabins.map(c=>saving(a,c)));
+    if(fS==="dest")        return (a.destination||"").localeCompare(b.destination||"");
+    if(fS==="region")      return (a.destination_region||"").localeCompare(b.destination_region||"");
+    return 0;
+  });
+
+  if(!data.length){setEmpty("nofilter");return}
+
+  const showCabins=CABIN_KEYS.filter(c=>activeCabins.includes(c)&&(!fC||fC===c));
+  const showBoth=priceView==="both";
+  const showPeak=priceView==="peak"||showBoth;
+  const showOff=priceView==="offpeak"||showBoth;
+
+  const rows=data.map(r=>{
+    const within=inBudget(r);
+    const minM=minAvios(r);
+    const pct=Math.min(100,Math.round((userPoints/Math.max(minM,1))*100));
+    const barClr=within?"var(--gr)":"var(--re)";
+    const maxSaving=Math.max(...showCabins.map(c=>saving(r,c)));
+
+    const cabCols=showCabins.map(c=>{
+      const op=getOffpeak(r,c), pk=getPeak(r,c), sv=saving(r,c);
+      const opOk=op>0&&op<=userPoints, pkOk=pk>0&&pk<=userPoints;
+
+      if(showBoth){
+        return `<td class="av-cell">
+          ${op>0?`<div class="av-val ${c}${!opOk?" faded":""}">${op.toLocaleString()} <span class="pk-badge pk-off">OFF</span></div>`:`<span class="na">—</span>`}
+          ${pk>0?`<div class="av-val ${c}${!pkOk?" faded":""}" style="margin-top:3px">${pk.toLocaleString()} <span class="pk-badge pk-peak">PEAK</span></div>`:""}
+          ${sv>0?`<div style="font-size:10px;color:var(--gr);font-family:var(--mono);margin-top:2px">save ${sv.toLocaleString()}</div>`:""}
+        </td>`;
+      } else {
+        const val=showPeak?pk:op;
+        const ok=val>0&&val<=userPoints;
+        return `<td class="av-cell">
+          ${val>0?`<div class="av-val ${c}${!ok?" faded":""}">${val.toLocaleString()}</div>
+          ${showOff&&sv>0?`<div style="font-size:10px;color:var(--gr);font-family:var(--mono)">vs ${pk.toLocaleString()} peak</div>`:""}
+          `:`<span class="na">—</span>`}
+        </td>`;
+      }
+    }).join("");
+
+    return `<tr onclick="showDetail(${JSON.stringify(r).replace(/"/g,'&quot;')})">
+      <td><div class="dcode">${r.destination||"?"}</div><div class="dregion">${r.destination_region||""}</div></td>
+      <td><span class="rtag">${r.destination_region||"—"}</span></td>
+      <td><span class="ztag">Z${r.ba_zone||"?"}</span></td>
+      ${cabCols}
+      ${maxSaving>0?`<td><span class="saving-chip">save ${maxSaving.toLocaleString()}</span></td>`:"<td></td>"}
+      <td>
+        <div class="bbar-wrap"><div class="bbar" style="width:${pct}%;background:${barClr}"></div></div>
+        <div style="font-size:9px;font-family:var(--mono);color:var(--mu);margin-top:2px">${within?"✓ within":"needs more"}</div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  const thCabins=showCabins.map(c=>`<th style="color:${CC[c]}">${CN[c]}</th>`).join("");
+  document.getElementById("tbl-wrap").innerHTML=`
+    <table>
+      <thead><tr><th>Dest</th><th>Region</th><th>Zone</th>${thCabins}<th>Saving</th><th>Budget</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  updateStats(data);
+}
+
+function updateStats(rows){
+  const inB=rows.filter(r=>inBudget(r));
+  const eco=rows.map(r=>getOffpeak(r,"Y")).filter(v=>v>0);
+  const biz=rows.map(r=>getOffpeak(r,"J")).filter(v=>v>0);
+  document.getElementById("s-dest").textContent=rows.length;
+  document.getElementById("s-budget").textContent=inB.length;
+  document.getElementById("s-eco").textContent=eco.length?Math.min(...eco).toLocaleString():"—";
+  document.getElementById("s-biz").textContent=biz.length?Math.min(...biz).toLocaleString():"—";
+}
+
+function setEmpty(t,msg=""){
+  const m={
+    loading:`<div class="empty"><div class="ico">⏳</div><p>Loading from cache…</p></div>`,
+    empty:`<div class="empty"><div class="ico">😶</div><p>No destinations found.<br>Run the refresh script first, then try again.</p></div>`,
+    nofilter:`<div class="empty"><div class="ico">🔎</div><p>No destinations match your filters.</p></div>`,
+    error:`<div class="empty"><div class="ico">⚠️</div><p>${msg}</p></div>`,
+  };
+  document.getElementById("tbl-wrap").innerHTML=m[t]||"";
+}
+
+// ── Detail panel ────────────────────────────────────────────────
+function showDetail(r){
+  const dest=r.destination||"?";
+  const origin=document.getElementById("origin").value||"?";
+  const zone=r.ba_zone;
+  const zd=zoneChart[zone]||{};
+  const dist=r.distance_mi?r.distance_mi.toLocaleString()+" mi":"—";
+
+  // Build peak/offpeak cabin cards for all 4 cabins
+  const offCards=CABIN_KEYS.map(c=>{
+    const v=getOffpeak(r,c);
+    const pk=getPeak(r,c);
+    const sv=saving(r,c);
+    const ok=v>0&&v<=userPoints;
+    if(!v) return `<div class="cc"><div class="ccn" style="color:${CC[c]}">${CN[c]}</div><div class="ccna">Not available off-peak</div></div>`;
+    return `<div class="cc">
+      <div class="ccn" style="color:${CC[c]}">${CN[c]}</div>
+      <div class="ccm" style="color:${CC[c]};${!ok?"opacity:.45":""}">${v.toLocaleString()}</div>
+      <div class="ccx">${ok?'<span style="color:var(--gr)">✓ Within budget</span>':'<span style="color:var(--re)">Needs '+(v-userPoints).toLocaleString()+' more</span>'}</div>
+      ${sv>0?`<div class="cc-saving">saves ${sv.toLocaleString()} vs peak</div>`:""}
+    </div>`;
+  }).join("");
+
+  const pkCards=CABIN_KEYS.map(c=>{
+    const v=getPeak(r,c);
+    const ok=v>0&&v<=userPoints;
+    if(!v) return `<div class="cc"><div class="ccn" style="color:${CC[c]}">${CN[c]}</div><div class="ccna">Not available peak</div></div>`;
+    return `<div class="cc">
+      <div class="ccn" style="color:${CC[c]}">${CN[c]}</div>
+      <div class="ccm" style="color:${CC[c]};${!ok?"opacity:.45":""}">${v.toLocaleString()}</div>
+      <div class="ccx">${ok?'<span style="color:var(--gr)">✓ Within budget</span>':'<span style="color:var(--re)">Needs '+(v-userPoints).toLocaleString()+' more</span>'}</div>
+    </div>`;
+  }).join("");
+
+  // Taxes row
+  const taxRow=(lbl,val)=>val?`<div class="irow"><span class="ik">${lbl}</span><span class="iv">~£${val} return</span></div>`:"";
+
+  document.getElementById("panel-body").innerHTML=`
+    <div class="pt">${origin} → ${dest}</div>
+    <div class="ps">${selProg?.name||""} · ${r.destination_region||"—"} · Zone ${zone||"?"} · ${dist}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div>
+        <div class="price-section-title offpeak-title">✓ Off-Peak prices</div>
+        <div class="cabin-row">${offCards}</div>
+      </div>
+      <div>
+        <div class="price-section-title peak-title">↑ Peak prices</div>
+        <div class="cabin-row">${pkCards}</div>
+      </div>
+    </div>
+    <div class="irow"><span class="ik">Your budget</span><span class="iv" style="color:var(--ac)">${userPoints.toLocaleString()} pts</span></div>
+    <div class="irow"><span class="ik">BA zone</span><span class="iv">Zone ${zone||"?"} · ${zd.label||""}</span></div>
+    <div class="irow"><span class="ik">Distance</span><span class="iv">${dist}</span></div>
+    <div class="irow"><span class="ik">Off-peak dates cached</span><span class="iv">${r.offpeak_dates_count||"—"}</span></div>
+    <div class="irow"><span class="ik">Peak dates cached</span><span class="iv">${r.peak_dates_count||"—"}</span></div>
+    ${taxRow("Economy taxes (return)",r.taxes_eco_return)}
+    ${taxRow("Premium taxes (return)",r.taxes_prem_return)}
+    ${taxRow("Business taxes (return)",r.taxes_biz_return)}
+    ${taxRow("First taxes (return)",r.taxes_first_return)}
+    <a class="bkbtn" href="https://seats.aero/search?origin=${origin}&destination=${dest}&source=${selProg?.id||""}" target="_blank">View availability on seats.aero →</a>
+  `;
+  document.getElementById("overlay").classList.add("show");
+}
+function closePanel(e){
+  if(!e||e.target===document.getElementById("overlay"))
+    document.getElementById("overlay").classList.remove("show");
+}
+
+// ── Export ──────────────────────────────────────────────────────
+function exportCSV(){
+  if(!allRows.length){alert("Run a search first.");return}
+  const cols=["destination","destination_region","ba_zone","distance_mi","source",
+    "offpeak_eco_avios","offpeak_prem_avios","offpeak_biz_avios","offpeak_first_avios",
+    "peak_eco_avios","peak_prem_avios","peak_biz_avios","peak_first_avios",
+    "taxes_eco_return","taxes_prem_return","taxes_biz_return","taxes_first_return",
+    "offpeak_dates_count","peak_dates_count"];
+  const rows=allRows.map(r=>cols.map(k=>`"${r[k]??""  }"`).join(","));
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([[cols.join(","),...rows].join("\n")],{type:"text/csv"}));
+  a.download=`avios-destinations-${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
